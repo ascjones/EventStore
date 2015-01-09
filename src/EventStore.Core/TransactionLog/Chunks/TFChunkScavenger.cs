@@ -376,28 +376,36 @@ namespace EventStore.Core.TransactionLog.Chunks
             while (result.Success)
             {
                 var record = result.LogRecord;
-                switch (record.RecordType)
+                try
                 {
-                    case LogRecordType.Prepare:
+                    switch (record.RecordType)
                     {
-                        var prepare = (PrepareLogRecord)record;
-                        processPrepare(prepare);
-                        break;
+                        case LogRecordType.Prepare:
+                        {
+                            var prepare = (PrepareLogRecord) record;
+                            processPrepare(prepare);
+                            break;
+                        }
+                        case LogRecordType.Commit:
+                        {
+                            var commit = (CommitLogRecord) record;
+                            processCommit(commit);
+                            break;
+                        }
+                        case LogRecordType.System:
+                        {
+                            var system = (SystemLogRecord) record;
+                            processSystem(system);
+                            break;
+                        }
+                        default:
+                            throw new ArgumentOutOfRangeException();
                     }
-                    case LogRecordType.Commit:
-                    {
-                        var commit = (CommitLogRecord)record;
-                        processCommit(commit);
-                        break;
-                    }
-                    case LogRecordType.System:
-                    {
-                        var system = (SystemLogRecord)record;
-                        processSystem(system);
-                        break;
-                    }
-                    default:
-                        throw new ArgumentOutOfRangeException();
+                }
+                catch (Exception exc)
+                {
+                    Log.ErrorException(exc, "Error traversing chunk {0}, failed to process {1} at LogPosition {2}", 
+                        Path.GetFileName(chunk.FileName), record.GetType().Name, record.LogPosition);
                 }
                 result = chunk.TryReadClosestForward((int)result.NextPosition);
             }
